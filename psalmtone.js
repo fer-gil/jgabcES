@@ -1405,20 +1405,62 @@ var _getEsSyllables = function(text,bi){
      typeof Spanish.syllabify != 'function' || typeof Spanish.accentedIndex != 'function') {
     return syl;
   }
-  var seenWords = [];
+
+  // Reconstruir cada palabra usando el motor español como fuente de verdad.
+  // Syl.syllabify conserva puntuación/espacios/tags, pero puede partir mal
+  // palabras españolas como "Dios".
+  var rebuilt = [];
+  var rebuiltSeenWords = [];
   syl.forEach(function(s) {
     var word = s.word;
-    if(!word || seenWords.indexOf(word) >= 0) return;
-    seenWords.push(word);
-    var cleanSyllables = word.map(function(ws) {
-      return (ws.sylnospace || ws.syl || '').replace(/<[^>]+>/g,'').replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ]/g,'');
-    }).filter(function(ws) { return ws.length; });
-    if(!cleanSyllables.length) return;
-    var accentIdx = Spanish.accentedIndex(cleanSyllables);
-    word.forEach(function(ws) { ws.accent = false; });
-    if(word[accentIdx]) word[accentIdx].accent = true;
+    if(!word || rebuiltSeenWords.indexOf(word) >= 0) return;
+    rebuiltSeenWords.push(word);
+
+    var wordText = word.map(function(ws) {
+      return (ws.sylnospace || ws.syl || '').replace(/<[^>]+>/g,'');
+    }).join('');
+    var cleanWord = wordText.replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ=]/g,'');
+    if(!cleanWord) {
+      word.forEach(function(ws){ rebuilt.push(ws); });
+      return;
+    }
+
+    var esSylls = Spanish.syllabify(cleanWord);
+    var accentIdx = Spanish.accentedIndex(esSylls);
+    var template = word[0];
+    var lastTemplate = word[word.length - 1] || template;
+    var rebuiltWord = [];
+
+    esSylls.forEach(function(esSyl, idx) {
+      var clone = (typeof $ != 'undefined' && $.extend) ? $.extend({}, template) : Object.assign({}, template);
+      clone.all = esSyl;
+      clone.syl = esSyl;
+      clone.sylnospace = esSyl;
+      clone.vowel = (regexVowel.exec(esSyl) || [''])[0];
+      clone.separator = undefined;
+      clone.accent = idx === accentIdx;
+      clone.prepunctuation = idx === 0 ? (template.prepunctuation || '') : '';
+      clone.prespace = idx === 0 ? (template.prespace || '') : '';
+
+      if(idx === esSylls.length - 1) {
+        clone.punctuation = lastTemplate.punctuation || '';
+        clone.space = lastTemplate.space || '';
+        clone.flex = lastTemplate.flex;
+        clone.mediant = lastTemplate.mediant;
+        clone.pause = lastTemplate.pause;
+      } else {
+        clone.punctuation = '';
+        clone.space = '';
+        clone.flex = false;
+        clone.mediant = false;
+        clone.pause = false;
+      }
+      rebuiltWord.push(clone);
+      rebuilt.push(clone);
+    });
+    rebuiltWord.forEach(function(ws){ ws.word = rebuiltWord; });
   });
-  return syl;
+  return rebuilt.length ? rebuilt : syl;
 };
 var getSyllables = _getLaSyllables;
 

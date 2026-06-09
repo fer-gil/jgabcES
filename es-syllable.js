@@ -157,10 +157,22 @@ var Spanish = (function () {
           }
           // Si no hay más letras: la sílaba actual es la última
         } else if (cons.length === 1) {
+          // Si no hay vocal después, la consonante cierra la sílaba actual.
+          // Evita errores como Di-os, Se-ño-r, pasto-r.
+          if (j >= n) {
+            current += cons[0];
+            i++;
+            continue;
+          }
           // Una consonante → va con la sílaba siguiente
           sylls.push(current);
           current = '';
         } else if (cons.length === 2) {
+          if (j >= n) {
+            current += cons.join('');
+            i += cons.length;
+            continue;
+          }
           if (isInseparableCluster(cons[0], cons[1])) {
             // Ambas van con la sílaba siguiente
             sylls.push(current);
@@ -175,6 +187,11 @@ var Spanish = (function () {
             continue;
           }
         } else if (cons.length >= 3) {
+          if (j >= n) {
+            current += cons.join('');
+            i += cons.length;
+            continue;
+          }
           // Tres o más consonantes:
           // Si las dos últimas forman grupo inseparable → solo la primera va con la sílaba anterior
           if (isInseparableCluster(cons[cons.length-2], cons[cons.length-1])) {
