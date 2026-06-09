@@ -24,12 +24,13 @@
   <script src="js/Tone.min.js"></script>
   <script src="js/tones.js"></script>
   <script src="util.js" type="text/javascript"></script>
+  <script src="es-syllable.js"></script>
+  <script src="es-psalmtone-patch.js"></script>
   <script src="psalmtone.js" type="text/javascript"></script>
   <script src="jszip.js" async type="text/javascript"></script>
   <script src="FileSaver.min.js"></script>
   <script src="jquery.hypher.js"></script>
   <script src="patterns/la-hypher.js"></script>
-  <script src="es-syllable.js"></script>
   <script src="cantica.js"></script>
   <script src="psalmtone.html.js"></script>
   <script src="exsurge.min.js"></script>
@@ -142,7 +143,12 @@ textarea{
 Mediant of <span id="sMedAccent"></span> accent<span id="sMedAccentS">s</span><span id="sMedPrepOuter"> with <span id="sMedPrep"></span> preparatory syllable<span id="sMedPrepS">s</span></span>
 <br/>Termination of <span id="sTermAccent"></span> accent<span id="sTermAccentS">s</span><span id="sTermPrepOuter"> with <span id="sTermPrep"></span> preparatory syllable<span id="sTermPrepS">s</span></span>
 </td><td><label for="selPsalm">Psalm </label><select id="selPsalm"></select>
-  <input type="checkbox" id="cbEnglish"/><label for="cbEnglish">English</label>
+  <select id="selLanguage" style="margin-left:8px;">
+        <option value="la">Latín</option>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+ <!-- <input type="checkbox" id="cbEnglish"/><label for="cbEnglish">English</label> -->
   <input type="checkbox" id="cbUseNovaVulgata"/><label for="cbUseNovaVulgata">Use Nova Vulgata psalms</label>
   <input type="checkbox" id="cbIncludeGloriaPatri"/><label for="cbIncludeGloriaPatri">Include Glória Patri</label><br/><div class="tap"><textarea id="versetext" lang="latin" style="height: 96pt; width: 100%;"></textarea></div>
 </td></tr>
