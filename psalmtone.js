@@ -688,7 +688,7 @@ function applyPsalmTone(options) {
       flexEqualsTenor = options.flexEqualsTenor || false,
       lang = options.lang;
   if(lang) {
-    getSyllables = lang=='en' ? _getEnSyllables : _getSyllables;
+    getSyllables = (lang == 'es') ? _getEsSyllables : (lang == 'en' ? _getEnSyllables : _getSyllables);
   }
   if(typeof(favor)=='string') {
     temp = {};
@@ -1161,6 +1161,200 @@ function getGabcTones(gabc,prefix,flexEqualsTenor,clef) {
                        variableIntonation);
 }
 
+
+
+// ─── Spanish psalm-tone support ──────────────────────────────────────────────
+// Optional integration module. It expects a global `Spanish` object with
+// syllabify(word) and accentedIndex(syllables). If that object is not present,
+// the rest of psalmtone.js falls back to the existing syllabifier.
+var SpanishPsalmTone = (function () {
+  function getLanguage() {
+    var sel = (typeof document !== 'undefined') && document.getElementById('selLanguage');
+    if (sel) return sel.value;
+    var cb = (typeof document !== 'undefined') && document.getElementById('cbEnglish');
+    if (cb && cb.checked) return 'en';
+    return 'la';
+  }
+
+  function isSpanish() {
+    return getLanguage() === 'es';
+  }
+
+  function getLastWord(line) {
+    var clean = String(line || '').replace(/[*†|]/g, '').trim();
+    var words = clean.split(/\s+/);
+    for (var i = words.length - 1; i >= 0; i--) {
+      var w = words[i].replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ]/g, '');
+      if (w.length > 0) return words[i];
+    }
+    return '';
+  }
+
+  function splitLineAtLastWord(line) {
+    var clean = String(line || '').replace(/[*†|]/g, ' ').replace(/\s+$/,'');
+    var idx = clean.search(/\S+\s*$/);
+    if (idx < 0) return { before: '', lastWord: clean.trim() };
+    return { before: clean.slice(0, idx), lastWord: clean.slice(idx).trim() };
+  }
+
+  function hasSpanishEngine() {
+    return typeof Spanish !== 'undefined' &&
+      typeof Spanish.syllabify === 'function' &&
+      typeof Spanish.accentedIndex === 'function';
+  }
+
+  function getLineAccentData(line, numPreparatory) {
+    var lastWord = getLastWord(line);
+    if (!lastWord || !hasSpanishEngine()) {
+      return { text: line, accents: 1, preparatory: 0, afterLastAccent: 0 };
+    }
+    var lastWordBare = lastWord.replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ]/g, '');
+    var sylls = Spanish.syllabify(lastWordBare);
+    var accentIdx = Spanish.accentedIndex(sylls);
+    var postCount = sylls.length - 1 - accentIdx;
+    var prepCount = (typeof numPreparatory === 'number') ? numPreparatory : accentIdx;
+    return {
+      text: line,
+      accents: 1,
+      preparatory: prepCount,
+      afterLastAccent: postCount
+    };
+  }
+
+  function markLine(line, numPreparatory, options) {
+    options = options || {};
+    var fmt = options.format || 'latex';
+    var BP, EP, BA, EA;
+    if (fmt === 'html') {
+      BP = '<em>'; EP = '</em>'; BA = '<strong>'; EA = '</strong>';
+    } else if (fmt === 'plain') {
+      BP = '_'; EP = '_'; BA = '*'; EA = '*';
+    } else {
+      BP = options.beginPrep || '\\textit{'; EP = options.endPrep || '}';
+      BA = options.beginAccent || '\\textbf{'; EA = options.endAccent || '}';
+    }
+    if (!hasSpanishEngine()) return line;
+    var parts = splitLineAtLastWord(line);
+    var before = parts.before;
+    var lastWord = parts.lastWord;
+    if (!lastWord) return line;
+    var trailing = lastWord.match(/([^a-záéíóúüñA-ZÁÉÍÓÚÜÑ]*)$/);
+    trailing = trailing ? trailing[1] : '';
+    var bareLastWord = lastWord.replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+$/g, '');
+    var sylls = Spanish.syllabify(bareLastWord);
+    var accentIdx = Spanish.accentedIndex(sylls);
+    var totalPrep = (typeof numPreparatory === 'number') ? numPreparatory : accentIdx;
+    var prepInLastWord = Math.min(accentIdx, totalPrep);
+    var prepInBefore = totalPrep - prepInLastWord;
+    var markedBefore = before;
+    if (prepInBefore > 0) {
+      var beforeWords = before.trim().split(/\s+/).filter(function(w) { return w.length; });
+      var beforeSylls = [];
+      beforeWords.forEach(function(w, wi) {
+        Spanish.syllabify(w).forEach(function(s, si) {
+          beforeSylls.push({ wordIdx: wi, syllIdx: si, text: s });
+        });
+      });
+      var markFrom = beforeSylls.length - prepInBefore;
+      if (markFrom < 0) markFrom = 0;
+      var markedWords = beforeWords.map(function(w) { return w; });
+      var syllPtr = 0;
+      beforeWords.forEach(function(w, wi) {
+        var ws = Spanish.syllabify(w);
+        var markedWord = '';
+        ws.forEach(function(s, si) {
+          var globalIdx = syllPtr + si;
+          markedWord += (globalIdx >= markFrom) ? BP + s + EP : s;
+        });
+        markedWords[wi] = markedWord;
+        syllPtr += ws.length;
+      });
+      markedBefore = markedWords.join(' ') + (before.match(/\s$/) ? '' : ' ');
+    }
+    var normalPart = sylls.slice(0, accentIdx - prepInLastWord).join('');
+    var prepPart = sylls.slice(accentIdx - prepInLastWord, accentIdx);
+    var accentSyll = sylls[accentIdx];
+    var postPart = sylls.slice(accentIdx + 1).join('');
+    var markedLastWord = normalPart;
+    prepPart.forEach(function(s) { markedLastWord += BP + s + EP; });
+    markedLastWord += BA + accentSyll + EA + postPart + trailing;
+    return markedBefore + markedLastWord;
+  }
+
+  function processVerses(verses, numPreparatory, options) {
+    return verses.map(function(line, i) {
+      var n = Array.isArray(numPreparatory) ? numPreparatory[i] : numPreparatory;
+      return markLine(line, n, options);
+    });
+  }
+
+  function hookIntoPsalmTone() {
+    if (typeof document === 'undefined') return;
+    var sel = document.getElementById('selLanguage');
+    if (sel) {
+      var hasEs = false;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === 'es') { hasEs = true; break; }
+      }
+      if (!hasEs) {
+        var opt = document.createElement('option');
+        opt.value = 'es'; opt.text = 'Español'; sel.appendChild(opt);
+      }
+    } else {
+      var cb = document.getElementById('cbEnglish');
+      if (cb && cb.parentNode) {
+        var newSel = document.createElement('select');
+        newSel.id = 'selLanguage';
+        newSel.style.cssText = 'margin-left:8px;height:20px;';
+        [['la','Latín'],['en','English'],['es','Español']].forEach(function(pair) {
+          var o = document.createElement('option');
+          o.value = pair[0]; o.text = pair[1]; newSel.appendChild(o);
+        });
+        newSel.value = cb.checked ? 'en' : 'la';
+        cb.parentNode.insertBefore(newSel, cb);
+        cb.style.display = 'none';
+        var lbl = document.querySelector('label[for="cbEnglish"]');
+        if (lbl) lbl.style.display = 'none';
+      }
+    }
+    if (typeof window !== 'undefined' && typeof window.syllabifyWord === 'function') {
+      var _orig = window.syllabifyWord;
+      window.syllabifyWord = function(word) {
+        if (isSpanish() && hasSpanishEngine()) return Spanish.syllabify(word);
+        return _orig(word);
+      };
+    }
+    if (typeof window !== 'undefined' && typeof window.getAccentIndex === 'function') {
+      var _origAccent = window.getAccentIndex;
+      window.getAccentIndex = function(sylls) {
+        if (isSpanish() && hasSpanishEngine()) return Spanish.accentedIndex(sylls);
+        return _origAccent(sylls);
+      };
+    }
+  }
+
+  return {
+    getLanguage: getLanguage,
+    isSpanish: isSpanish,
+    getLineAccentData: getLineAccentData,
+    markLine: markLine,
+    processVerses: processVerses,
+    hookIntoPsalmTone: hookIntoPsalmTone,
+    syllabify: function(w) { return hasSpanishEngine() ? Spanish.syllabify(w) : [w]; },
+    accentedIndex: function(s) { return hasSpanishEngine() ? Spanish.accentedIndex(s) : 0; }
+  };
+})();
+
+(function() {
+  function init() { SpanishPsalmTone.hookIntoPsalmTone(); }
+  if (typeof document === 'undefined') return;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+
 var _getSyllables = function(text,bi) {
   if(typeof(text)!="string") {
     return text;
@@ -1205,6 +1399,27 @@ var _getSyllables = function(text,bi) {
 }
 var _getEnSyllables = function(text){return Syl.syllabify(text);};
 var _getLaSyllables = function(text){return Syl.syllabify(text,'la');};
+var _getEsSyllables = function(text,bi){
+  var syl = Syl.syllabify(text,'es');
+  if(typeof SpanishPsalmTone == 'undefined' || typeof Spanish == 'undefined' ||
+     typeof Spanish.syllabify != 'function' || typeof Spanish.accentedIndex != 'function') {
+    return syl;
+  }
+  var seenWords = [];
+  syl.forEach(function(s) {
+    var word = s.word;
+    if(!word || seenWords.indexOf(word) >= 0) return;
+    seenWords.push(word);
+    var cleanSyllables = word.map(function(ws) {
+      return (ws.sylnospace || ws.syl || '').replace(/<[^>]+>/g,'').replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ]/g,'');
+    }).filter(function(ws) { return ws.length; });
+    if(!cleanSyllables.length) return;
+    var accentIdx = Spanish.accentedIndex(cleanSyllables);
+    word.forEach(function(ws) { ws.accent = false; });
+    if(word[accentIdx]) word[accentIdx].accent = true;
+  });
+  return syl;
+};
 var getSyllables = _getLaSyllables;
 
 function getWords(syls) {
@@ -1247,6 +1462,13 @@ function addBoldItalic(text,accents,preparatory,sylsAfterBold,format,onlyVowel,v
   if(!sylsAfterBold) sylsAfterBold = 0;
   var f = bi_formats[format];
   if(!f) f = bi_formats.html;
+  if(typeof SpanishPsalmTone != 'undefined' && SpanishPsalmTone.isSpanish && SpanishPsalmTone.isSpanish()) {
+    var spanishAccentData = SpanishPsalmTone.getLineAccentData(text, (typeof preparatory == 'number') ? preparatory : undefined);
+    accents = spanishAccentData.accents;
+    preparatory = spanishAccentData.preparatory;
+    sylsAfterBold = spanishAccentData.afterLastAccent;
+    getSyllables = _getEsSyllables;
+  }
   var biFlex = f.flex || ['','','',''];
   var verseNum = regexVerseNumber.exec(text);
   if(verseNum) {
@@ -1656,5 +1878,6 @@ window['getPsalmTones'] = getPsalmTones;
 window['getEndings'] = getEndings;
 window['applyPsalmTone'] = applyPsalmTone;
 window['getSyllables'] = getSyllables;
+window['SpanishPsalmTone'] = SpanishPsalmTone;
 window['addBoldItalic'] = addBoldItalic;
 window['shiftGabc'] = shiftGabc;
