@@ -14,6 +14,8 @@ function updateEditor(forceGabcUpdate,_syl,_gSyl,_gShortMediant,clef) {
   _syl = _syl || syl;
   _gSyl = _gSyl || gSyl;
   clef = clef || _clef;
+  var lang = (typeof getSelectedLanguage == 'function') ? getSelectedLanguage() : (selLang == 'english' ? 'en' : (selLang == 'spanish' ? 'es' : 'la'));
+  getSyllables = (lang == 'es') ? _getEsSyllables : ((lang == 'en') ? _getEnSyllables : _getLaSyllables);
   var sameSyl = (_syl == last_syl);
   var sameGSyl = (_gSyl == last_gSyl);
   var lines = sameSyl? last_lines : _syl.split('\n');
@@ -79,6 +81,7 @@ function updateEditor(forceGabcUpdate,_syl,_gSyl,_gShortMediant,clef) {
         gabc += applyPsalmTone({
           text: line[0].trim(),
           gabc: gMediant,
+          lang: lang,
           useOpenNotes: usePunctaCava,
           useBoldItalic: true,
           firstPrefix: (!useInitStyle),
@@ -95,6 +98,7 @@ function updateEditor(forceGabcUpdate,_syl,_gSyl,_gShortMediant,clef) {
           applyPsalmTone({
             text: line[1].trim(),
             gabc: gTermination,
+            lang: lang,
             useOpenNotes: usePunctaCava,
             useBoldItalic: true,
             firstPrefix: (!useInitStyle),
@@ -223,6 +227,35 @@ function updateVerseGabc() {
 function updateText() {
   syl = $("#versetext").val();
   updateEditor();
+}
+
+function getSelectedLanguage() {
+  var sel = $("#selLanguage")[0];
+  if(sel) return sel.value || 'la';
+  var cb = $("#cbEnglish")[0];
+  return (cb && cb.checked) ? 'en' : 'la';
+}
+
+function setSelectedLanguage(lang, shouldUpdate) {
+  lang = lang || 'la';
+  var sel = $("#selLanguage")[0];
+  if(sel && sel.value != lang) sel.value = lang;
+
+  var cb = $("#cbEnglish")[0];
+  if(cb) cb.checked = (lang == 'en');
+
+  selLang = (lang == 'en') ? 'english' : ((lang == 'es') ? 'spanish' : 'latin');
+  localStorage.selLang = selLang;
+  localStorage.selLanguage = lang;
+
+  getSyllables = (lang == 'es') ? _getEsSyllables : ((lang == 'en') ? _getEnSyllables : _getLaSyllables);
+
+  // The same text/GABC must be recomputed when only the language changes.
+  last_syl = null;
+  last_gSyl = null;
+  last_lines = null;
+
+  if(shouldUpdate !== false) updateText();
 }
 
 function updateEndings() {
@@ -796,13 +829,10 @@ $(function() {
     $('#chant-parent2').toggleClass('noeditor',hash.noeditor?true:false);
   });
   var cbEnglishChanged = function(){
-    selLang = cbEnglish.checked? 'english' : 'latin';
-    localStorage.selLang = selLang;
-    getSyllables = cbEnglish.checked? _getEnSyllables : _getLaSyllables;
-    last_syl = null;
-    updateText();
+    setSelectedLanguage(cbEnglish.checked ? 'en' : 'la');
   };
   $("#cbEnglish").click(cbEnglishChanged);
+  $("#selLanguage").change(function(){ setSelectedLanguage(this.value); }).keyup(function(){ setSelectedLanguage(this.value); });
   $("#selTones").append('<option>' + getPsalmTones().join('</option><option>') + '</option><optgroup label="Custom"></optgroup>');
   $("#selPsalm").append('<optgroup label="Psalms"><option>' + getPsalms().join('</option><option>') + '</option></optgroup>' +
                         '<optgroup label="Canticles">' + getCanticaOptions() + '</optgroup>');
@@ -838,6 +868,8 @@ $(function() {
   //$("#btnPrint").click(printMe);
   $("#selPsalm").keyup(updatePsalm);
   $("#cbSolemn")[0].checked = ((hash.solemn || localStorage.cbSolemn) == "true");
+  var initialLanguage = localStorage.selLanguage || (localStorage.selLang == 'english' ? 'en' : (localStorage.selLang == 'spanish' ? 'es' : 'la'));
+  setSelectedLanguage(initialLanguage, false);
   $("#cbOnlyVowels")[0].checked = onlyVowels = (localStorage.cbOnlyVowels == "true");
   $("#cbInitStyle")[0].checked = useInitStyle = (localStorage.cbInitStyle != "false");
   $("#cbUsePunctaCava")[0].checked = usePunctaCava = (localStorage.cbUsePunctaCava != "false");
