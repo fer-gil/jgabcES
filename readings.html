@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" >
 <!--
 TODO:
@@ -28,14 +28,16 @@ If a syllable is the last in the word and it is not a full stop/question, there 
   <script src="js/Tone.min.js"></script>
   <script src="js/tones.js"></script>
   <script src="util.js" type="text/javascript"></script>
-  <script src="psalmtone.js" type="text/javascript"></script>
+  <script src="es-syllable.js?v=readings-es1" type="text/javascript"></script>
+  <script src="psalmtone.js?v=readings-es1" type="text/javascript"></script>
   <script src="jszip.js" async type="text/javascript"></script>
-  <script src="readings.js"></script>
+  <script src="readings.js?v=readings-es1"></script>
   <script src="exsurge.min.js"></script>
 
   <script src="jquery.hypher.js"></script>
   <script src="patterns/la-hypher.js"></script>
   <script src="patterns/en-us.js"></script>
+  <script src="patterns/es-hypher.js?v=readings-es1"></script>
   <!-- <script src="jszip-deflate.js" async type="text/javascript"></script>-->
 </head>
 <body class='sans' style='padding:8px'>
@@ -132,7 +134,14 @@ textarea{
 <label for="txtQuestion">Question GABC: </label><input type="text" id="txtQuestion" style="width:50%"/><br/>
 <label for="txtConclusion">Conclusion GABC: </label><input type="text" id="txtConclusion" style="width:50%"/><br/>
 </td><td><label for="versetext">Text</label>
-&nbsp;&nbsp;<input type="checkbox" id="cbEnglish" checked/><label for="cbEnglish" title="If you are working with English text, check this box, and the text will be run through the lyric hyphenator at juiciobrennan.com; it will only contact this site once every 5 seconds so you may have to wait a bit at times for the word syllabification to correct itself.  Unknown words are assumed to be a single syllable, and custom syllable breaks may be entered using = as in 'syl=la=ble'">English</label>
+&nbsp;&nbsp;<label for="selLanguage">Language:</label>
+<select id="selLanguage" style="margin-left:4px;">
+  <option value="en">English</option>
+  <option value="la">Latín</option>
+  <option value="es">Español</option>
+</select>
+<input type="checkbox" id="cbEnglish" checked style="display:none"/>
+<label for="cbEnglish" style="display:none" title="Legacy English checkbox">English</label>
 &nbsp;&nbsp;&nbsp;
 Load from Vulgate:
 <select id="vulgateBook">
@@ -211,7 +220,7 @@ Load from Vulgate:
   <option>Apocalypsis</option>
 </select>
 <input id="vulgateChapterVerse" placeholder="Chapter:Verse"><input type="button" id="btnVulgateLoad" value="Load"/>
-<br/><div class="tap"><textarea id="versetext" lang="latin" style="height: 120pt; width: 100%;">IN those days a decree went out from Caesar Augustus
+<br/><div class="tap"><textarea id="versetext" style="height: 120pt; width: 100%;">IN those days a decree went out from Caesar Augustus
 that the whole world should be enrolled*.
 This was the first enrollment,
 when Quirinius was governor of Sy*ria.

@@ -24,7 +24,7 @@ var readingIntroductions = {
   "Apocalypsis": `Léc(h)ti(h)o(h) li(h)bri(h) A(f)po(h)ca(g)lýp(g)sis(h.) (,) be(h)á(h)ti(h) Jo(h)án(hi)nis(g) A(g)pós(f)to(g)li.(g.) (:)`
 };
 var selLang = 'english';
-var custom_tones={english:{},latin:{}};
+var custom_tones={english:{},latin:{},spanish:{}};
 var gSyl,syl,_clef;
 var last_syl,last_gSyl,gShortMediant;
 var last_lines,last_terTones,last_medTones;
@@ -33,6 +33,8 @@ function updateEditor(forceGabcUpdate,_syl) {
   var actuallyUpdate=(typeof(_syl)=="undefined");
   if(!syl) syl = $("#versetext").val();
   _syl = _syl || syl;
+  var currentLang = (typeof getSelectedReadingLanguage == 'function') ? getSelectedReadingLanguage() : (selLang == 'latin' ? 'la' : (selLang == 'spanish' ? 'es' : 'en'));
+  getSyllables = (currentLang == 'es') ? _getEsSyllables : ((currentLang == 'la') ? _getLaSyllables : _getEnSyllables);
   var sameSyl = (_syl == last_syl);
   var lines = sameSyl? last_lines : splitSentences(_syl);
   var gReciting,gFlex,gMediant,gFullStop,gQuestion,gTermination;
@@ -188,6 +190,7 @@ function updateEditor(forceGabcUpdate,_syl) {
       {
         text: line,
         gabc: psalmTone,
+        lang: currentLang,
         useOpenNotes: usePunctaCava,
         useBoldItalic: true,
         onlyVowel: onlyVowels,
@@ -217,6 +220,51 @@ function keyupTxtGabc() {
 function updateText() {
   localStorage.text = syl = $("#versetext").val();
   updateEditor();
+}
+
+function getSelectedReadingLanguage() {
+  var sel = $("#selLanguage")[0];
+  if(sel) return sel.value || 'en';
+  var cb = $("#cbEnglish")[0];
+  return (cb && cb.checked) ? 'en' : 'la';
+}
+
+function readingLanguageKey(lang) {
+  return lang == 'es' ? 'spanish' : (lang == 'la' ? 'latin' : 'english');
+}
+
+function setReadingLanguage(lang, shouldUpdate) {
+  lang = lang || 'en';
+  var sel = $("#selLanguage")[0];
+  if(sel && sel.value != lang) sel.value = lang;
+
+  var cb = $("#cbEnglish")[0];
+  if(cb) cb.checked = (lang == 'en');
+
+  selLang = readingLanguageKey(lang);
+  localStorage.selLang = selLang;
+  localStorage.selLanguage = lang;
+
+  if(typeof custom_tones == 'object' && !custom_tones[selLang]) custom_tones[selLang] = {};
+  if(typeof g_tones == 'object' && !g_tones[selLang] && g_tones.latin) {
+    g_tones[selLang] = $.extend(true, {}, g_tones.latin);
+  }
+
+  getSyllables = (lang == 'es') ? _getEsSyllables : ((lang == 'la') ? _getLaSyllables : _getEnSyllables);
+
+  if(typeof g_tones == 'object' && g_tones[selLang]) {
+    $("#selTones").empty().append('<option>' + getPsalmTones(g_tones[selLang]).join('</option><option>') + '</option><optgroup label="Custom"></optgroup>');
+    var ttones = getPsalmTones(custom_tones[selLang] || []);
+    if(ttones.length>0){
+      g_tones[selLang]=$.extend({},g_tones[selLang],custom_tones[selLang]);
+      $("#selTones optgroup").append('<option>' + getPsalmTones(custom_tones[selLang]).join('</option><option>') + '</option>');
+    }
+  }
+
+  last_syl = null;
+  last_lines = null;
+
+  if(shouldUpdate !== false) updateTone();
 }
 
 function shiftGabc(gabc,shift) {
@@ -638,7 +686,8 @@ $(function() {
       }
     }
   };
-  g_tones = $.extend({},o_g_tones);
+  if(!readingTones.spanish) readingTones.spanish = $.extend(true, {}, readingTones.latin);
+  g_tones = $.extend(true, {}, o_g_tones);
   //if(!localStorage)localStorage=false;
   if(localStorage.bi_formats) {
     bi_formats = JSON.parse(localStorage.bi_formats);
@@ -666,18 +715,10 @@ $(function() {
   $("#versetext").keyup(updateText).keydown(makeInternationalTextBoxKeyDown(false));
   if(localStorage.text) $("#versetext").val(localStorage.text);
   var cbEnglishChanged = function(){
-    selLang = cbEnglish.checked? 'english' : 'latin';
-    localStorage.selLang = selLang;
-    getSyllables = cbEnglish.checked? _getEnSyllables : _getLaSyllables;
-    $("#selTones").empty().append('<option>' + getPsalmTones(g_tones[selLang]).join('</option><option>') + '</option><optgroup label="Custom"></optgroup>');
-    var ttones = getPsalmTones(custom_tones[selLang] || []);
-    if(ttones.length>0){
-      g_tones[selLang]=$.extend({},g_tones[selLang],custom_tones[selLang]);
-      $("#selTones optgroup").append('<option>' + getPsalmTones(custom_tones[selLang]).join('</option><option>') + '</option>');
-    }
-    updateText();
+    setReadingLanguage(cbEnglish.checked ? 'en' : 'la');
   };
   $("#cbEnglish").click(cbEnglishChanged);
+  $("#selLanguage").change(function(){ setReadingLanguage(this.value); }).keyup(function(){ setReadingLanguage(this.value); });
   $("#cbOnlyVowels").change(updateOnlyVowels);
   $("#cbUsePunctaCava").change(updateUsePunctaCava);
   $("#cbSolemn,#selTones").change(updateTone);
@@ -696,7 +737,8 @@ $(function() {
   
   $("#cbSolemn")[0].checked = (localStorage.cbSolemn == "true");
   $("#cbOnlyVowels")[0].checked = onlyVowels = (localStorage.cbOnlyVowels == "true");
-  $("#cbEnglish")[0].checked = (localStorage.selLang == "english");
+  var initialLanguage = localStorage.selLanguage || (localStorage.selLang == 'latin' ? 'la' : (localStorage.selLang == 'spanish' ? 'es' : 'en'));
+  setReadingLanguage(initialLanguage, false);
   $("#cbUsePunctaCava")[0].checked = false;
   $("#selFormat").val('gabc-plain');
   $("#txtBeginPrep").keyup(updateBeginPrep);
@@ -705,7 +747,7 @@ $(function() {
   $("#txtEndAccented").keyup(updateEndAccented);
   $("#txtGabc").keyup(updateLocalHeader);
   $("#lnkDownloadVerses").bind("dragstart",onDragStart);
-  cbEnglishChanged();
+  setReadingLanguage(getSelectedReadingLanguage(), false);
   var getGabc = function(){
     var gabc = $('#txtGabc').val(),
         header = getHeader(gabc);
