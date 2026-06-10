@@ -1439,14 +1439,17 @@ var _getEsSyllables = function(text,bi){
 
     esSylls.forEach(function(esSyl, idx) {
       var clone = (typeof $ != 'undefined' && $.extend) ? $.extend({}, template) : Object.assign({}, template);
+      clone.prepunctuation = idx === 0 ? (template.prepunctuation || '') : '';
+      clone.prespace = idx === 0 ? (template.prespace || '') : '';
       clone.all = esSyl;
-      clone.syl = esSyl;
+      // jgabc often prints s.syl directly, so the first syllable of a word
+      // must keep its original leading whitespace. sylnospace remains bare
+      // for bold/italic wrappers.
+      clone.syl = clone.prespace + esSyl;
       clone.sylnospace = esSyl;
       clone.vowel = (regexVowel.exec(esSyl) || [''])[0];
       clone.separator = undefined;
       clone.accent = idx === accentIdx;
-      clone.prepunctuation = idx === 0 ? (template.prepunctuation || '') : '';
-      clone.prespace = idx === 0 ? (template.prespace || '') : '';
 
       if(idx === esSylls.length - 1) {
         clone.punctuation = lastTemplate.punctuation || '';
