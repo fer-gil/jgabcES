@@ -255,7 +255,11 @@ function setSelectedLanguage(lang, shouldUpdate) {
   last_gSyl = null;
   last_lines = null;
 
-  if(shouldUpdate !== false) updateText();
+  if(shouldUpdate !== false) {
+    last_syl = null;
+    last_gSyl = null;
+    updateEditor(true);
+  }
 }
 
 function updateEndings() {
@@ -832,7 +836,7 @@ $(function() {
     setSelectedLanguage(cbEnglish.checked ? 'en' : 'la');
   };
   $("#cbEnglish").click(cbEnglishChanged);
-  $("#selLanguage").change(function(){ setSelectedLanguage(this.value); }).keyup(function(){ setSelectedLanguage(this.value); });
+  $("#selLanguage").change(function(){ setSelectedLanguage(this.value); updateEndings(); }).keyup(function(){ setSelectedLanguage(this.value); updateEndings(); });
   $("#selTones").append('<option>' + getPsalmTones().join('</option><option>') + '</option><optgroup label="Custom"></optgroup>');
   $("#selPsalm").append('<optgroup label="Psalms"><option>' + getPsalms().join('</option><option>') + '</option></optgroup>' +
                         '<optgroup label="Canticles">' + getCanticaOptions() + '</optgroup>');

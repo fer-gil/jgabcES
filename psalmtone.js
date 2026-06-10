@@ -1425,7 +1425,13 @@ var _getEsSyllables = function(text,bi){
       return;
     }
 
-    var esSylls = Spanish.syllabify(cleanWord);
+    var esSylls;
+    if(typeof Hypher != 'undefined' && Hypher.languages && Hypher.languages.es) {
+      esSylls = Hypher.languages.es.hyphenate(cleanWord);
+    } else {
+      esSylls = Spanish.syllabify(cleanWord);
+    }
+    if(!esSylls || !esSylls.length) esSylls = Spanish.syllabify(cleanWord);
     var accentIdx = Spanish.accentedIndex(esSylls);
     var template = word[0];
     var lastTemplate = word[word.length - 1] || template;
