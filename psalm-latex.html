@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Psalm LaTeX Tool</title>
+  <link rel="icon" href="icon/clear-main.png" type="image/png" />
+  <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css" />
+  <link rel="stylesheet" type="text/css" href="style.css" />
+  <script src="jquery.min.js" type="text/javascript"></script>
+  <script src="es-syllable.js?v=es4" type="text/javascript"></script>
+  <script src="psalm-latex.js?v=modern1" type="text/javascript"></script>
+  <style>
+    body { padding: 8px; }
+    textarea { width: 100%; font-family: Menlo, Consolas, monospace; font-size: 13px; }
+    .tool-row { margin-bottom: 8px; }
+    .output-box { height: 220px; }
+    #psalmInput { height: 260px; }
+    .help { color: #666; font-size: 12px; }
+    .status { margin-left: 8px; font-weight: bold; }
+  </style>
+</head>
+<body class="sans">
+  <div style="width:100%;margin-bottom:5px">
+    <ul class="nav nav-pills" style="display: inline-block;">
+      <li role="presentation"><a href="transcriber.html">GABC Transcription Tool</a></li>
+      <li role="presentation"><a href="psalmtone.html">Psalm Tone Tool</a></li>
+      <li role="presentation" class="active"><a href="psalm-latex.html">Psalm LaTeX Tool</a></li>
+      <li role="presentation"><a href="readings.html">Readings Tool</a></li>
+      <li role="presentation"><a href="propers.html">Propers Tool</a></li>
+      <li role="presentation"><a href="faq.html">(About)</a></li>
+    </ul>
+  </div>
+
+  <h3>Psalm LaTeX / LilyPond Formatter</h3>
+
+  <div class="row tool-row">
+    <div class="col-sm-8">
+      <label for="prepPattern">Preparatory syllable pattern</label>
+      <input type="text" class="form-control" id="prepPattern" value="2,2,2,1" />
+      <div class="help">Example: <code>2,2,2,1</code> means lines 1–3 get two preparatory syllables, line 4 gets one. The pattern repeats for each stanza.</div>
+    </div>
+    <div class="col-sm-4">
+      <label>&nbsp;</label><br />
+      <button id="btnFormat" class="btn btn-primary">Format</button>
+      <span id="status" class="status"></span>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-6">
+      <label for="psalmInput">Input text</label>
+      <textarea id="psalmInput" spellcheck="false">::stanza 1
+Glorifica al Señor, Jerusalén;
+a Dios ríndele honores, Israel.
+El refuerza el cerrojo de tus puertas
+y bendice a tus hijos en tu casa.
+
+::stanza 2
+El mantiene la paz en tus fronteras,
+con su trigo mejor sacia tu hambre.
+El envía a la tierra su mensaje
+y su palabra corre velozmente.</textarea>
+      <div class="help">Use <code>::stanza 1</code>, <code>::stanza 2</code>, etc. Lines do not need individual numbers unless you want to override the pattern.</div>
+    </div>
+    <div class="col-sm-6">
+      <label for="lilypondOutput">LilyPond output — first stanza only</label>
+      <textarea id="lilypondOutput" class="output-box" spellcheck="false"></textarea>
+      <p><button id="btnCopyLilypond" class="btn btn-default btn-xs">Copy LilyPond</button></p>
+
+      <label for="latexOutput">LaTeX output — all stanzas</label>
+      <textarea id="latexOutput" class="output-box" spellcheck="false"></textarea>
+      <p><button id="btnCopyLatex" class="btn btn-default btn-xs">Copy LaTeX</button></p>
+    </div>
+  </div>
+</body>
+</html>
