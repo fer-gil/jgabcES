@@ -1,7 +1,9 @@
 /*
  * psalm-latex.js
  * Formatea salmos españoles para LaTeX y LilyPond usando el silabificador Spanish.
- * Input por línea: <preparatorias> | <texto>
+ * Input normal: texto por estrofas, separadas por línea en blanco.
+ * Patrón global: caja prepPattern, por ejemplo 2,2,2,1.
+ * Override opcional por línea: 0| texto, 1| texto, etc.
  */
 (function () {
   'use strict';
@@ -30,31 +32,64 @@
     return /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(ch);
   }
 
-  function parseInput(text) {
+  function parsePattern(patternText) {
+    var pattern = String(patternText || '')
+      .split(/[,\s]+/)
+      .map(function (n) { return parseInt(n, 10); })
+      .filter(function (n) { return !isNaN(n) && n >= 0; });
+
+    if (!pattern.length) {
+      throw new Error('El patrón de preparatorias está vacío. Usa algo como 2,2,2,1.');
+    }
+    return pattern;
+  }
+
+  function pushCurrentStanza(stanzas, current) {
+    if (current && current.lines.length) stanzas.push(current);
+  }
+
+  function parseInput(text, pattern) {
     var stanzas = [];
-    var cur = null;
+    var current = { number: 1, lines: [] };
+    var stanzaNumber = 1;
+    var lineInStanza = 0;
+
     String(text || '').split(/\r?\n/).forEach(function (rawLine) {
       var line = rawLine.trim();
-      if (!line) return;
 
-      var stanza = line.match(/^::?\s*stanza\s+(\d+)\s*$/i) || line.match(/^@stanza\s+(\d+)\s*$/i);
-      if (stanza) {
-        cur = { number: parseInt(stanza[1], 10), lines: [] };
-        stanzas.push(cur);
+      if (!line) {
+        pushCurrentStanza(stanzas, current);
+        stanzaNumber += current.lines.length ? 1 : 0;
+        current = { number: stanzaNumber, lines: [] };
+        lineInStanza = 0;
         return;
       }
 
-      if (!cur) {
-        cur = { number: 1, lines: [] };
-        stanzas.push(cur);
+      var stanza = line.match(/^::?\s*stanza\s+(\d+)\s*$/i) || line.match(/^@stanza\s+(\d+)\s*$/i);
+      if (stanza) {
+        pushCurrentStanza(stanzas, current);
+        stanzaNumber = parseInt(stanza[1], 10);
+        current = { number: stanzaNumber, lines: [] };
+        lineInStanza = 0;
+        return;
       }
 
-      var m = line.match(/^(\d+)\s*(?:\||\s)\s*(.+)$/);
-      if (!m) {
-        throw new Error('Línea sin número de preparatorias: "' + line + '"');
+      var override = line.match(/^(\d+)\s*\|\s*(.+)$/);
+      var prep;
+      var textLine;
+      if (override) {
+        prep = parseInt(override[1], 10);
+        textLine = override[2];
+      } else {
+        prep = pattern[lineInStanza % pattern.length];
+        textLine = line;
       }
-      cur.lines.push({ prep: parseInt(m[1], 10), text: m[2] });
+
+      current.lines.push({ prep: prep, text: textLine, lineNumber: lineInStanza + 1 });
+      lineInStanza++;
     });
+
+    pushCurrentStanza(stanzas, current);
     return stanzas;
   }
 
@@ -71,7 +106,6 @@
 
       var start = i;
       while (i < line.length && isWordChar(line.charAt(i))) i++;
-      var wordEnd = i;
       while (i < line.length && /[^\sA-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(line.charAt(i))) i++;
       var end = i;
 
@@ -169,8 +203,9 @@
     return out.join(' ');
   }
 
-  function formatAll(text) {
-    var stanzas = parseInput(text);
+  function formatAll(text, patternText) {
+    var pattern = parsePattern(patternText);
+    var stanzas = parseInput(text, pattern);
     var latex = [];
     var lily = ['\\set stanza = \\markup {\\with-color #red \\normal-text \\fontsize #-5 1}', ''];
 
@@ -187,10 +222,10 @@
 
         if (stanzaIndex === 0) lily.push(renderLilypondLine(tokens, isFinalLine));
       });
-      latex.push('%');
+      if (stanza.lines.length) latex.push('%');
     });
 
-    return { latex: latex.join('\n'), lilypond: lily.join('\n') };
+    return { latex: latex.join('\n'), lilypond: lily.join('\n'), stanzas: stanzas };
   }
 
   function copyText(id) {
@@ -202,19 +237,26 @@
 
   function run() {
     try {
-      var result = formatAll(byId('psalmInput').value);
+      var result = formatAll(byId('psalmInput').value, byId('prepPattern').value);
       byId('latexOutput').value = result.latex;
       byId('lilypondOutput').value = result.lilypond;
-      byId('status').textContent = 'Listo.';
+      byId('status').textContent = 'Listo. ' + result.stanzas.length + ' estrofa(s).';
     } catch (e) {
       byId('status').textContent = 'Error: ' + e.message;
     }
   }
 
-  window.PsalmLatexFormatter = { formatAll: formatAll, analyzeLine: analyzeLine };
+  window.PsalmLatexFormatter = {
+    formatAll: formatAll,
+    analyzeLine: analyzeLine,
+    parseInput: parseInput,
+    parsePattern: parsePattern
+  };
 
   document.addEventListener('DOMContentLoaded', function () {
     byId('btnFormat').onclick = run;
+    byId('prepPattern').oninput = run;
+    byId('psalmInput').oninput = run;
     byId('btnCopyLatex').onclick = function () { copyText('latexOutput'); };
     byId('btnCopyLilypond').onclick = function () { copyText('lilypondOutput'); };
     run();
