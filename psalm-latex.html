@@ -10,6 +10,7 @@
   <script src="jquery.min.js" type="text/javascript"></script>
   <script src="es-syllable.js?v=es4" type="text/javascript"></script>
   <script src="psalm-latex.js?v=modern1" type="text/javascript"></script>
+  <script src="psalm-latex-fixes.js?v=modern2" type="text/javascript"></script>
   <style>
     body { padding: 8px; }
     textarea { width: 100%; font-family: Menlo, Consolas, monospace; font-size: 13px; }
@@ -50,18 +51,14 @@
   <div class="row">
     <div class="col-sm-6">
       <label for="psalmInput">Input text</label>
-      <textarea id="psalmInput" spellcheck="false">::stanza 1
-Glorifica al Señor, Jerusalén;
-a Dios ríndele honores, Israel.
-El refuerza el cerrojo de tus puertas
-y bendice a tus hijos en tu casa.
+      <textarea id="psalmInput" spellcheck="false">Alabemos a Dios todos los hombres,
+sirvamos al Señor con alegría
+y con júbilo entremos en su templo.
 
-::stanza 2
-El mantiene la paz en tus fronteras,
-con su trigo mejor sacia tu hambre.
-El envía a la tierra su mensaje
-y su palabra corre velozmente.</textarea>
-      <div class="help">Use <code>::stanza 1</code>, <code>::stanza 2</code>, etc. Lines do not need individual numbers unless you want to override the pattern.</div>
+Reconozcamos que el Señor es Dios,
+que él fue quien nos hizo y somos suyos,
+que somos su pueblo y su rebaño.</textarea>
+      <div class="help">Blank line = new stanza. Optional override: <code>0| text</code>, <code>1| text</code>, etc.</div>
     </div>
     <div class="col-sm-6">
       <label for="lilypondOutput">LilyPond output — first stanza only</label>
