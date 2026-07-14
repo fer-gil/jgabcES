@@ -10,7 +10,7 @@
   <script src="jquery.min.js" type="text/javascript"></script>
   <script src="es-syllable.js?v=es4" type="text/javascript"></script>
   <script src="psalm-latex.js?v=modern1" type="text/javascript"></script>
-  <script src="psalm-latex-fixes.js?v=modern2" type="text/javascript"></script>
+  <script src="psalm-latex-fixes-test.js?v=modern3" type="text/javascript"></script>
   <style>
     body { padding: 8px; }
     textarea { width: 100%; font-family: Menlo, Consolas, monospace; font-size: 13px; }
@@ -39,7 +39,7 @@
     <div class="col-sm-8">
       <label for="prepPattern">Preparatory syllable pattern</label>
       <input type="text" class="form-control" id="prepPattern" value="2,2,2,1" />
-      <div class="help">Example: <code>2,2,2,1</code> means lines 1–3 get two preparatory syllables, line 4 gets one. The pattern repeats for each stanza.</div>
+      <div class="help">Example: <code>2,2,2,1</code> means lines 1–3 get two preparatory syllables, line 4 gets one. The pattern restarts in each stanza.</div>
     </div>
     <div class="col-sm-4">
       <label>&nbsp;</label><br />
@@ -58,7 +58,11 @@ y con júbilo entremos en su templo.
 Reconozcamos que el Señor es Dios,
 que él fue quien nos hizo y somos suyos,
 que somos su pueblo y su rebaño.</textarea>
-      <div class="help">Blank line = new stanza. Optional override: <code>0| text</code>, <code>1| text</code>, etc.</div>
+      <div class="help">
+        Blank line = new stanza. Optional override: <code>0| text</code>, <code>1| text</code>, etc.<br />
+        Use <code>~</code> for a manual sinalefa, for example <code>nombre~invoca</code>.<br />
+        Use <code>†</code> for a manual flex; the final accent is bold and everything after it is underlined.
+      </div>
     </div>
     <div class="col-sm-6">
       <label for="lilypondOutput">LilyPond output — first stanza only</label>
