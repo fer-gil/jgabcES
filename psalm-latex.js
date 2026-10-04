@@ -31,12 +31,12 @@
     return /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ¿¡.,;:!?'-]+$/.test(s) ? s : '"' + ly(s) + '"';
   }
 
-  function parsePattern(value) {
+  function parsePattern(value, language) {
     var result = String(value || '')
       .split(/[,\s]+/)
       .map(function (n) { return parseInt(n, 10); })
       .filter(function (n) { return Number.isFinite(n) && n >= 0; });
-    if (!result.length) throw new Error('Escribe un patrón como 2,2,2,1.');
+    if (!result.length) throw new Error(language === 'en' ? 'Enter a pattern such as 2,2,2,1.' : 'Escribe un patrón como 2,2,2,1.');
     return result;
   }
 
@@ -119,19 +119,50 @@
     return isVowel(ch) || ch === 'n' || ch === 's' ? syllables.length - 2 : syllables.length - 1;
   }
 
-  function scanSyllables(text) {
+  function prepareLine(text, language) {
+    if (language !== 'en') return { text: text, hints: [] };
+    var words = /[A-Za-zÁÉÍÓÚÝáéíóúý\u0301]+(?:['’=][A-Za-zÁÉÍÓÚÝáéíóúý\u0301]+)*/g;
+    var hints = [];
+    var result = '';
+    var last = 0;
+    var match;
+    while ((match = words.exec(text))) {
+      result += text.slice(last, match.index);
+      var hint = window.PsalmEnglish.parseWord(match[0]);
+      result += hint.text;
+      hints.push(hint);
+      last = match.index + match[0].length;
+    }
+    return { text: result + text.slice(last), hints: hints };
+  }
+
+  function scanSyllables(text, language, hints) {
     var spans = [];
-    var i = 0;
+    var words = language === 'en'
+      ? /[A-Za-z]+(?:['’][A-Za-z]+)*/g
+      : /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/g;
+    var match;
     var wordId = 0;
-    while (i < text.length) {
-      while (i < text.length && !isLetter(text[i])) i++;
-      if (i >= text.length) break;
-      var start = i;
-      while (i < text.length && isLetter(text[i])) i++;
-      var endLetters = i;
-      var word = text.slice(start, endLetters);
-      var syllables = syllabifyWord(word);
-      var stressed = stressIndex(syllables);
+    while ((match = words.exec(text))) {
+      var start = match.index;
+      var word = match[0];
+      var endLetters = start + word.length;
+      var hint = hints && hints[wordId];
+      var syllables = language === 'en'
+        ? ((hint && hint.syllables) || window.PsalmEnglish.syllabify(word))
+        : syllabifyWord(word);
+      var stressed = language === 'en'
+        ? window.PsalmEnglish.accentedIndex(word, syllables)
+        : stressIndex(syllables);
+      var explicit = -1;
+      if (language === 'en' && hint && hint.accentOffset >= 0) {
+        var offset = 0;
+        syllables.forEach(function (syllable, index) {
+          if (hint.accentOffset >= offset && hint.accentOffset < offset + syllable.length) explicit = index;
+          offset += syllable.length;
+        });
+        if (explicit >= 0) stressed = explicit;
+      }
       var pos = start;
       syllables.forEach(function (syllable, index) {
         spans.push({
@@ -141,7 +172,8 @@
           wordId: wordId,
           wordStart: start,
           wordEnd: endLetters,
-          stressed: index === stressed
+          stressed: index === stressed,
+          explicitAccent: index === explicit
         });
         pos += syllable.length;
       });
@@ -150,8 +182,13 @@
     return spans;
   }
 
-  function lastAccent(text, spans) {
+  function lastAccent(text, spans, language) {
     if (!spans.length) return -1;
+    if (language === 'en') {
+      for (var explicit = spans.length - 1; explicit >= 0; explicit--) {
+        if (spans[explicit].explicitAccent) return explicit;
+      }
+    }
     var lastWord = spans[spans.length - 1].wordId;
     for (var i = spans.length - 1; i >= 0; i--) {
       if (spans[i].wordId === lastWord && spans[i].stressed) return i;
@@ -178,9 +215,9 @@
     return units;
   }
 
-  function analyzeCadence(text, prepCount) {
-    var spans = scanSyllables(text);
-    var accentIndex = lastAccent(text, spans);
+  function analyzeCadence(text, prepCount, language, hints) {
+    var spans = scanSyllables(text, language, hints);
+    var accentIndex = lastAccent(text, spans, language);
     if (accentIndex < 0) return { text: text, spans: [], units: [], prepUnits: [], accentIndex: -1 };
     var units = makeUnits(text, spans);
     var accentUnit = 0;
@@ -254,21 +291,23 @@
     var out = [];
     if (prefix) out.push('\\salmodia "' + ly(prefix) + '"' + (prefixContinuesWord(model.text, prepStart) ? ' --' : ''));
     model.prepUnits.forEach(function (unit) { out.push(renderPrepUnit(model, unit)); });
-    var tail = model.text.slice(accent.end).replace(/~/g, ' ');
-    var concat = '\\markup \\concat {\\bold "' + ly(accent.text) + '"' + ly(tail);
+    var wordTail = model.text.slice(accent.end, accent.wordEnd).replace(/~/g, ' ');
+    var afterWord = model.text.slice(accent.wordEnd).replace(/~/g, ' ');
+    var tail = ly(wordTail) + (/\s/.test(afterWord) ? ' "' + ly(afterWord) + '"' : ly(afterWord));
+    var concat = '\\markup \\concat {\\bold "' + ly(accent.text) + '"' + tail;
     if (finalLine) concat += '\\hspace #0.5 \\respuestaRoja';
     concat += '}';
     out.push((accent.end < accent.wordEnd ? '\\salmodia ' : '') + concat);
     return out.join(' ');
   }
 
-  function analyzeFlex(line) {
+  function analyzeFlex(line, language, hints) {
     var marker = line.indexOf('†');
     if (marker < 0) return null;
     var left = line.slice(0, marker).replace(/\s+$/g, '');
     var right = line.slice(marker + 1).replace(/^\s+/g, '');
-    var spans = scanSyllables(left);
-    var accentIndex = lastAccent(left, spans);
+    var spans = scanSyllables(left, language, hints);
+    var accentIndex = lastAccent(left, spans, language);
     return { left: left, right: right, spans: spans, accentIndex: accentIndex };
   }
 
@@ -297,8 +336,9 @@
     return out.join(' ');
   }
 
-  function formatAll(text, patternValue, allStanzas) {
-    var pattern = parsePattern(patternValue);
+  function formatAll(text, patternValue, allStanzas, language) {
+    language = language === 'en' ? 'en' : 'es';
+    var pattern = parsePattern(patternValue, language);
     var stanzas = parseText(text, pattern);
     var latex = [];
     var lilyHeader = '\\set stanza = \\markup {\\with-color #red \\normal-text \\fontsize #-5 ';
@@ -307,7 +347,8 @@
     stanzas.forEach(function (stanza, stanzaIndex) {
       if (allStanzas && stanzaIndex > 0) lily.push('', lilyHeader + (stanzaIndex + 1) + '}', '');
       stanza.forEach(function (line, lineIndex) {
-        var flex = analyzeFlex(line.text);
+        var prepared = prepareLine(line.text, language);
+        var flex = analyzeFlex(prepared.text, language, prepared.hints);
         var lastLine = lineIndex === stanza.length - 1;
         var texLine;
         var lyLine;
@@ -315,7 +356,7 @@
           texLine = renderFlexTex(flex);
           lyLine = renderFlexLy(flex);
         } else {
-          var model = analyzeCadence(line.text, line.prep);
+          var model = analyzeCadence(prepared.text, line.prep, language, prepared.hints);
           texLine = renderRegularTex(model);
           lyLine = renderRegularLy(model, lastLine);
         }
@@ -343,12 +384,16 @@
   function run() {
     try {
       var allStanzas = id('allStanzasLilypond').checked;
-      var result = formatAll(id('psalmInput').value, id('prepPattern').value, allStanzas);
+      var language = id('textLanguage').value;
+      var result = formatAll(id('psalmInput').value, id('prepPattern').value, allStanzas, language);
       id('allStanzasValue').textContent = allStanzas ? 'Yes' : 'No';
       id('lilypondLabel').textContent = allStanzas ? 'LilyPond output — all stanzas' : 'LilyPond output — first stanza only';
       id('latexOutput').value = result.latex;
       id('lilypondOutput').value = result.lilypond;
-      id('status').textContent = 'Listo. ' + result.stanzas.length + ' estrofa(s).';
+      id('englishHelp').style.display = language === 'en' ? '' : 'none';
+      id('status').textContent = language === 'en'
+        ? 'Ready. ' + result.stanzas.length + ' stanza(s).'
+        : 'Listo. ' + result.stanzas.length + ' estrofa(s).';
     } catch (error) {
       id('status').textContent = 'Error: ' + error.message;
     }
@@ -365,6 +410,15 @@
     id('btnFormat').onclick = run;
     id('prepPattern').oninput = run;
     id('allStanzasLilypond').onchange = run;
+    var spanishExample = id('psalmInput').defaultValue;
+    var englishExample = 'The Lord is my shepherd;\nI shall not want.\n\nHe makes me lie down in green pastures;\nhe leads me beside still waters.';
+    id('textLanguage').onchange = function () {
+      var input = id('psalmInput');
+      if (input.value === spanishExample || input.value === englishExample) {
+        input.value = id('textLanguage').value === 'en' ? englishExample : spanishExample;
+      }
+      run();
+    };
     id('psalmInput').oninput = run;
     id('btnCopyLatex').onclick = function () { copy('latexOutput'); };
     id('btnCopyLilypond').onclick = function () { copy('lilypondOutput'); };
