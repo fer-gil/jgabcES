@@ -297,13 +297,15 @@
     return out.join(' ');
   }
 
-  function formatAll(text, patternValue) {
+  function formatAll(text, patternValue, allStanzas) {
     var pattern = parsePattern(patternValue);
     var stanzas = parseText(text, pattern);
     var latex = [];
-    var lily = ['\\set stanza = \\markup {\\with-color #red \\normal-text \\fontsize #-5 1}', ''];
+    var lilyHeader = '\\set stanza = \\markup {\\with-color #red \\normal-text \\fontsize #-5 ';
+    var lily = [lilyHeader + '1}', ''];
 
     stanzas.forEach(function (stanza, stanzaIndex) {
+      if (allStanzas && stanzaIndex > 0) lily.push('', lilyHeader + (stanzaIndex + 1) + '}', '');
       stanza.forEach(function (line, lineIndex) {
         var flex = analyzeFlex(line.text);
         var lastLine = lineIndex === stanza.length - 1;
@@ -323,7 +325,7 @@
           if (lastLine && stanzaIndex < stanzas.length - 1) texLine += ' \\vspace{1em}';
         }
         latex.push(texLine);
-        if (stanzaIndex === 0) lily.push(lyLine);
+        if (allStanzas || stanzaIndex === 0) lily.push(lyLine);
       });
       latex.push('%');
     });
@@ -340,7 +342,10 @@
 
   function run() {
     try {
-      var result = formatAll(id('psalmInput').value, id('prepPattern').value);
+      var allStanzas = id('allStanzasLilypond').checked;
+      var result = formatAll(id('psalmInput').value, id('prepPattern').value, allStanzas);
+      id('allStanzasValue').textContent = allStanzas ? 'Yes' : 'No';
+      id('lilypondLabel').textContent = allStanzas ? 'LilyPond output — all stanzas' : 'LilyPond output — first stanza only';
       id('latexOutput').value = result.latex;
       id('lilypondOutput').value = result.lilypond;
       id('status').textContent = 'Listo. ' + result.stanzas.length + ' estrofa(s).';
@@ -359,6 +364,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     id('btnFormat').onclick = run;
     id('prepPattern').oninput = run;
+    id('allStanzasLilypond').onchange = run;
     id('psalmInput').oninput = run;
     id('btnCopyLatex').onclick = function () { copy('latexOutput'); };
     id('btnCopyLilypond').onclick = function () { copy('lilypondOutput'); };
