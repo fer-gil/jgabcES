@@ -258,7 +258,7 @@
     var concat = '\\markup \\concat {\\bold "' + ly(accent.text) + '"' + ly(tail);
     if (finalLine) concat += '\\hspace #0.5 \\respuestaRoja';
     concat += '}';
-    out.push(concat);
+    out.push((accent.end < accent.wordEnd ? '\\salmodia ' : '') + concat);
     return out.join(' ');
   }
 
